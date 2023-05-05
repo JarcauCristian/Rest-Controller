@@ -3,9 +3,12 @@ import requests
 import json
 import io
 from classes import *
+import os
 
 app = FastAPI()
 headers = {'Content-Type': 'application/json'}
+
+addr = os.environ.get('IP_ADDR', 'localhost')
 
 
 @app.get('/search')
@@ -18,9 +21,9 @@ async def search(query: str = None, authorization: str = Header(None)):
             'Authorization': authorization,
             'Content-Type': 'application/json'
         }
-        user_respoonse = requests.post('http://localhost:8080/verifytoken', headers=data_headers, data=json.dumps(data))
+        user_respoonse = requests.post(f'http://{addr}:8079/verifytoken', headers=data_headers, data=json.dumps(data))
         if user_respoonse.status_code == 200:
-            response = requests.get('http://localhost:8080/search?q=%s' % query)
+            response = requests.get(f'http://{addr}:8080/search?q={query}')
             if response.status_code == 200:
                 body = json.loads(response.content.decode('utf-8'))
                 return body
@@ -48,7 +51,7 @@ async def get_history(authorization: str = Header(None)):
             'Authorization': authorization,
             'Content-Type': 'application/json'
         }
-        response = requests.get('http://localhost:8080/transaction/get_history', headers=data_header)
+        response = requests.get(f'http://{addr}:8079/transaction/get_history', headers=data_header)
         if response.status_code == 200:
             body = json.loads(response.content.decode('utf-8'))
             return body
@@ -62,6 +65,50 @@ async def get_history(authorization: str = Header(None)):
                     status_code=400,
                     detail='Invalid request',
                 )
+    
+@app.get('/graph/popular')
+async def get_popular(authorization: str = Header(None)):
+    if authorization is not None:
+        data_header = {
+            'Authorization': authorization,
+            'Content-Type': 'application/json'
+        }
+        response = requests.get(f'http://{addr}:8079/transaction/get_popular_transactions', headers=data_header)
+        if response.status_code == 200:
+            body = json.loads(response.content.decode('utf-8'))
+            return body
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail='User is not allowed to access this methode!',
+            )
+    else:
+        raise HTTPException(
+                    status_code=400,
+                    detail='Invalid request',
+        )
+    
+@app.get('/graph/price')
+async def get_price(authorization: str = Header(None)):
+    if authorization is not None:
+        data_header = {
+            'Authorization': authorization,
+            'Content-Type': 'application/json'
+        }
+        response = requests.get(f'http://{addr}:8079/transaction/get_transactions_price', headers=data_header)
+        if response.status_code == 200:
+            body = json.loads(response.content.decode('utf-8'))
+            return body
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail='User is not allowed to access this methode!',
+            )
+    else:
+        raise HTTPException(
+                    status_code=400,
+                    detail='Invalid request',
+        )
 
 @app.post('/save_transaction')
 async def save_transaction(transaction: Transaction, authorization: str = Header(None)):
@@ -73,7 +120,7 @@ async def save_transaction(transaction: Transaction, authorization: str = Header
         data = {
             "datasetName": transaction.database_name
         }
-        response = requests.post('http://localhost:8080/transaction/save_transaction', headers=data_headers, data=json.dumps(data))
+        response = requests.post(f'http://{addr}:8079/transaction/save_transaction', headers=data_headers, data=json.dumps(data))
         if response.status_code == 201:
             return {"message": "Transaction saved successfully!"}
         else:
@@ -98,9 +145,9 @@ async def display_snippet(database_name: str = None, database_table: str = None,
             'Authorization': authorization,
             'Content-Type': 'application/json'
         }
-        user_respoonse = requests.post('http://localhost:8080/verifytoken', headers=data_headers, data=json.dumps(data))
+        user_respoonse = requests.post(f'http://{addr}:8079/verifytoken', headers=data_headers, data=json.dumps(data))
         if user_respoonse.status_code == 200:
-            response = requests.get(f'http://localhost:8080/get_snippet?databaseName={database_name}&databaseTable={database_table}')
+            response = requests.get(f'http://{addr}:8080/get_snippet?databaseName={database_name}&databaseTable={database_table}')
             if response.status_code == 200:
                 body = json.loads(response.content.decode('utf-8'))
                 return body
@@ -131,9 +178,9 @@ async def get_full_dataset(database_name: str = None, database_table: str = None
             'Authorization': authorization,
             'Content-Type': 'application/json'
         }
-        user_respoonse = requests.post('http://localhost:8080/verifytoken', headers=data_headers, data=json.dumps(data))
+        user_respoonse = requests.post(f'http://{addr}:8079/verifytoken', headers=data_headers, data=json.dumps(data))
         if user_respoonse.status_code == 200:
-            response = requests.get(f'http://localhost:8080/get_dataset?databaseName={database_name}&databaseTable={database_table}&format={data_format}')
+            response = requests.get(f'http://{addr}:8080/get_dataset?databaseName={database_name}&databaseTable={database_table}&format={data_format}')
             if response.status_code == 200:
                 body = response.content.decode("utf-8")
                 if data_format == 'json' or data_format == 'json-ld':
@@ -169,14 +216,14 @@ async def signin(signins: Signin):
             "username": signins.username,
             "password": signins.password
         }
-        user_response = requests.post(f'http://localhost:8080/signin', headers=headers, data=json.dumps(data))
+        user_response = requests.post(f'http://{addr}:8079/signin', headers=headers, data=json.dumps(data))
         if user_response.status_code == 200:
             body = json.loads(user_response.content.decode("utf-8"))
             return {"message": "Logged in successfully!", "user_data": body}
         else:
             raise HTTPException(
                 status_code=500,
-                detail='Internal Server Error',
+                detail=user_response.content.decode("utf-8"),
             )
     else:
         raise HTTPException(
@@ -192,20 +239,20 @@ async def signup(signups: Signup):
             "email": signups.email,
             "password": signups.password
         }
-        user_response = requests.post(f'http://localhost:8080/signup', headers=headers, data=json.dumps(data))
+        user_response = requests.post(f'http://{addr}:8079/signup', headers=headers, data=json.dumps(data))
         if user_response.status_code == 200:
-            email_response = requests.get(f'http://localhost:8080/sendEmail/{signups.email}')
+            email_response = requests.get(f'http://{addr}:8079/sendEmail/{signups.email}')
             if email_response.status_code == 200:
                 return {"message": "Account created successfully! (Check your email for to verify your account)"}
             else:
                 raise HTTPException(
                     status_code=500,
-                    detail='Internal Server Error',
+                    detail=email_response.content.decode("utf-8"),
                 )
         else:
             raise HTTPException(
                 status_code=500,
-                detail='Internal Server Error',
+                detail=user_response.content.decode("utf-8"),
             )
     else:
         raise HTTPException(
@@ -220,13 +267,13 @@ async def validate_email(validate: Validate):
             data = {
                 "code": validate.code
             }
-            user_response = requests.post(f'http://localhost:8080/validate_email/{validate.email}', headers=headers, data=json.dumps(data))
+            user_response = requests.post(f'http://{addr}:8079/validate_code/{validate.email}', headers=headers, data=json.dumps(data))
             if user_response.status_code == 200:
                 return {"message": "Account validation successful!"}
             else:
                 raise HTTPException(
                     status_code=500,
-                    detail='Internal Server Error',
+                    detail=user_response.content.decode("utf-8"),
                 )
         else:
             raise HTTPException(
@@ -241,7 +288,7 @@ async def signout(authorization: str = Header(None)):
             'Authorization': authorization,
             'Content-Type': 'application/json'
         }
-        user_response = requests.get(f'http://localhost:8080/signout', headers=data_headers)
+        user_response = requests.get(f'http://{addr}:8079/signout', headers=data_headers)
         if user_response.status_code == 200:
             return {"message": "Logged out successfully!"}
         else:
@@ -258,7 +305,7 @@ async def delete_account(delete: Delete, authorization: str = Header(None)):
                     'Authorization': authorization,
                     'Content-Type': 'application/json'
                 }
-        response = requests.delete(f'http://localhost:8080/users/{delete.email}', headers=data_headers)
+        response = requests.delete(f'http://{addr}:8079/users/{delete.email}', headers=data_headers)
         if response.status_code == 200:
             return {"message": "Account deleted successfully!"}
         else:
@@ -283,7 +330,7 @@ async def update_password(passwords: PasswordReset,  authorization: str = Header
             "CurrentPassword": passwords.current_password,
             "newPassword": passwords.new_password
         }
-        response = requests.put('http://localhost:8080/users/password', headers=data_headers, data=json.dumps(data))
+        response = requests.put(f'http://{addr}:8079/users/password', headers=data_headers, data=json.dumps(data))
         if response.status_code == 200:
             return {"message": "Password updated successfully!"}
         else:
@@ -305,7 +352,7 @@ async def get_balance(authorization: str = Header(None)):
                     'Authorization': authorization,
                     'Content-Type': 'application/json'
                 }
-        balance_response = requests.get('http://localhost:8080/check_balance', headers=data_headers)
+        balance_response = requests.get(f'http://{addr}:8079/check_balance', headers=data_headers)
         if balance_response.status_code == 200:
             return balance_response.json()
         else:
@@ -330,7 +377,7 @@ async def update_balance(balance: Balance, authorization: str = Header(None)):
         data = {
             "balance": balance.balance
         }
-        balance_response = requests.post('http://localhost:8080/check_balance', headers=data_headers, data=json.dumps(data))
+        balance_response = requests.post(f'http://{addr}:8079/update_balance', headers=data_headers, data=json.dumps(data))
         if balance_response.status_code == 200:
             return balance_response.json()
         else:
@@ -347,7 +394,7 @@ async def update_balance(balance: Balance, authorization: str = Header(None)):
 
 @app.post('/refresh_token')
 async def refresh_token(authorization: str = Header(None)):
-    if authorization is not None and balance.balance is not None:
+    if authorization is not None:
         data_headers = {
                     'Authorization': authorization,
                     'Content-Type': 'application/json'
@@ -355,7 +402,7 @@ async def refresh_token(authorization: str = Header(None)):
         data = {
             "refreshToken": authorization.split(' ')[1]
         }
-        response = requests.post('http://localhost:8080/check_balance', headers=data_headers, data=json.dumps(data))
+        response = requests.post(f'http://{addr}:8079/check_balance', headers=data_headers, data=json.dumps(data))
         if response.status_code == 200:
             return response.json()
         else:
