@@ -6,5 +6,18 @@
    -  signup
    -  validate_email
    -  dsiplay_snippet
-   -  get_dataset
+   -  get_full_dataset
    -  update token
+   -  search
+   -  get_history
+   -  graph/popular
+   -  graph/price
+   -  save_transaction
+   -  validate_email
+   -  delete_account
+   -  update_password
+   -  get_balance
+   -  update_balance
+   -  refresh_token
+   -  insert_token
+   -  get_price
